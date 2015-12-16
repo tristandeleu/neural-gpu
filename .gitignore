@@ -58,6 +58,9 @@ docs/_build/
 # PyBuilder
 target/
 
+# Untracked files
+.DS_Store
+
 # Untracked folders
 animations/
 models/
