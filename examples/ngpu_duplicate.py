@@ -1,8 +1,8 @@
 import theano
 import theano.tensor as T
 import numpy as np
-
 import matplotlib.pyplot as plt
+import argparse
 
 import lasagne.updates
 import lasagne.objectives
@@ -63,29 +63,44 @@ def model(input_var, target_var, num_symbols=4, \
 
 
 if __name__ == '__main__':
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument('--load', help='load help', type=file)
+    argparser.add_argument('--batch_size', help='batch size help', \
+        default=128, type=int)
+    args = argparser.parse_args()
+
     input_var = T.dtensor4('input')
     target_var = T.dtensor3('target')
-    batch_size = 128
 
     states, output, outputs, accuracy, cost, params = model(input_var, \
         target_var, num_symbols=3, width=4, embedding_dim=24, \
         filter_size=(3, 3))
 
-    updates = lasagne.updates.adam(cost, params, learning_rate=1e-3)
-    train_fn = theano.function([input_var, target_var], cost, updates=updates)
-    accuracy_fn = theano.function([input_var, target_var], accuracy)
-
-    generator = Duplicate(batch_size=batch_size, max_iter=1000, \
+    generator = Duplicate(batch_size=args.batch_size, max_iter=1000, \
         proba_curriculum=0.2, max_length=10)
 
-    try:
-        for i, p, (example_input, example_output) in generator:
-            batch_error = train_fn(example_input, example_output)
-            batch_accuracy = accuracy_fn(example_input, example_output)
-            print 'Batch %d, Error: %.6f, Accuracy: %.6f (Length: %d)' % \
-                (i, batch_error, batch_accuracy, p['length'])
-    except KeyboardInterrupt:
-        pass
+    if args.load is None:
+        updates = lasagne.updates.adam(cost, params, learning_rate=1e-3)
+        train_fn = theano.function([input_var, target_var], cost, \
+                                   updates=updates)
+        accuracy_fn = theano.function([input_var, target_var], accuracy)
+
+        try:
+            for i, p, (example_input, example_output) in generator:
+                batch_error = train_fn(example_input, example_output)
+                batch_accuracy = accuracy_fn(example_input, example_output)
+                print 'Batch %d, Error: %.6f, Accuracy: %.6f (Length: %d)' % \
+                    (i, batch_error, batch_accuracy, p['length'])
+        except KeyboardInterrupt:
+            pass
+    else:
+        loaded_params = np.load(args.load)
+        for param in params:
+            try:
+                param.set_value(loaded_params[str(param)])
+            except KeyError:
+                raise KeyError('Unable to load parameter %s from the model '
+                               '%s.' % (param, args.load))
 
     mental_image_fn = theano.function([input_var], states)
     prediction_fn = theano.function([input_var], output)
