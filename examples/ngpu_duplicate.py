@@ -27,16 +27,16 @@ def model(input_var, target_var, num_symbols=4, \
         embedded = T.dot(i, E)
         return embedded.dimshuffle(0, 3, 1, 2)
 
-    def step(i_t, k_t, s_tm1):
-        k_tp1 = k_t + 1
-        s_t = layer1(s_tm1, k_t)
-        return k_tp1, s_t
+    def step(i_t, k_tm1, s_tm1):
+        k_t = k_tm1 + 1
+        s_t = layer1(s_tm1, k_tm1)
+        return k_t, s_t
 
     s0 = init_mental_image(input_var)
     (_, mental_images), _ = theano.scan(step, \
         sequences=input_var.dimshuffle(2, 0, 1, 3), outputs_info=[0, s0])
     mental_images = T.concatenate([s0.dimshuffle('x', 0, 1, 2, 3), \
-        mental_images], axis=0)
+                                  mental_images], axis=0)
 
     def output_step(s_t):
         pre_logits = s_t.dimshuffle(0, 2, 1)
@@ -50,9 +50,9 @@ def model(input_var, target_var, num_symbols=4, \
                             sequences=mental_images[:,:,:,0,:])
 
     accuracy = T.mean(lasagne.objectives.categorical_accuracy(\
-        output, target_var.dimshuffle(1, 0, 2)))
+                      output, target_var.dimshuffle(1, 0, 2)))
     cost = T.mean(T.nnet.categorical_crossentropy(\
-        output, target_var.dimshuffle(1, 0, 2)))
+                  output, target_var.dimshuffle(1, 0, 2)))
 
     params = layer1.params + [E, O]
 
@@ -77,7 +77,7 @@ if __name__ == '__main__':
         filter_size=(3, 3))
 
     generator = Duplicate(batch_size=args.batch_size, max_iter=1000, \
-        proba_curriculum=0.2, max_length=10)
+                          proba_curriculum=0.2, max_length=10)
 
     if args.load is None:
         updates = lasagne.updates.adam(cost, params, learning_rate=1e-3)
